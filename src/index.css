@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #052e16;
+  -webkit-tap-highlight-color: transparent;
+}
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+input {
+  -webkit-user-select: text;
+  user-select: text;
+  font-size: 16px;
+}
+#root {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@keyframes fly {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0); }
+}
+.fly { animation: fly 2.4s ease-in-out infinite; }
