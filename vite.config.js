@@ -10,6 +10,9 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registriamo il SW manualmente in main.jsx (virtual:pwa-register) per avere
+      // l'auto-reload alla nuova versione; evitiamo quindi lo script auto-iniettato.
+      injectRegister: false,
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-512-maskable.png'],
       manifest: {
         name: 'Corso Caccia — Simulatore Esame Venatorio',
