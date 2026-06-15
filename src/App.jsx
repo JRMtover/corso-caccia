@@ -102,9 +102,9 @@ function HomeScreen({ player, setPlayer, leaderboard, onExam, onStudy, onSection
 
       <div className="w-full max-w-lg flex flex-col gap-3">
         <button onClick={onExam}
-          className="bg-green-600 hover:bg-green-500 active:bg-green-700 text-white font-black text-xl rounded-2xl py-5 px-6 shadow-xl transition-all duration-150 flex items-center gap-4 text-left">
+          className="bg-green-700 hover:bg-green-600 active:bg-green-800 text-white font-black text-xl rounded-2xl py-5 px-6 shadow-xl transition-all duration-150 flex items-center gap-4 text-left">
           <span className="text-3xl">📝</span>
-          <div><div>Simulazione Esame</div><div className="text-sm font-normal opacity-80">30 domande · 30 min · max 4 errori</div></div>
+          <div><div>Simulazione Esame</div><div className="text-sm font-normal text-green-100">30 domande · 30 min · max 4 errori</div></div>
         </button>
 
         <div className="bg-white/10 rounded-2xl overflow-hidden backdrop-blur border border-white/10">
@@ -131,9 +131,9 @@ function HomeScreen({ player, setPlayer, leaderboard, onExam, onStudy, onSection
         </div>
 
         <button onClick={onStudy}
-          className="bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white font-black text-xl rounded-2xl py-5 px-6 shadow-xl transition-all duration-150 flex items-center gap-4 text-left">
+          className="bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-green-950 font-black text-xl rounded-2xl py-5 px-6 shadow-xl transition-all duration-150 flex items-center gap-4 text-left">
           <span className="text-3xl">📖</span>
-          <div><div>Modalità Studio</div><div className="text-sm font-normal opacity-80">Tutte le domande con feedback immediato</div></div>
+          <div><div>Modalità Studio</div><div className="text-sm font-normal text-green-950">Tutte le domande con feedback immediato</div></div>
         </button>
       </div>
 
@@ -226,8 +226,8 @@ function ExamMode({ player, onFinish, onExit }) {
         <button onClick={() => go(-1)} disabled={idx === 0}
           className="flex-1 bg-white/15 hover:bg-white/25 disabled:opacity-30 text-white font-bold rounded-2xl py-4 transition-all">← Indietro</button>
         {idx < questions.length - 1
-          ? <button onClick={() => go(1)} className="flex-1 bg-amber-500 hover:bg-amber-400 text-white font-black rounded-2xl py-4 transition-all shadow-lg">Avanti →</button>
-          : <button onClick={() => setPhase("review")} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-black rounded-2xl py-4 transition-all shadow-lg">Consegna ✓</button>
+          ? <button onClick={() => go(1)} className="flex-1 bg-amber-500 hover:bg-amber-400 text-green-950 font-black rounded-2xl py-4 transition-all shadow-lg">Avanti →</button>
+          : <button onClick={() => setPhase("review")} className="flex-1 bg-green-700 hover:bg-green-600 text-white font-black rounded-2xl py-4 transition-all shadow-lg">Consegna ✓</button>
         }
       </div>
       {answered < questions.length && idx === questions.length - 1 &&
@@ -252,7 +252,7 @@ function ExamResults({ player, questions, answers, correct, wrong, passed, timeU
         <button onClick={() => setShowReview(s => !s)} className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-2xl py-3 mb-3 transition-all">
           {showReview ? "Nascondi correzione" : "📋 Rivedi le risposte"}
         </button>
-        <button onClick={onFinish} className="w-full bg-green-600 hover:bg-green-500 text-white font-black text-lg rounded-2xl py-4 transition-all">Torna alla Home</button>
+        <button onClick={onFinish} className="w-full bg-green-700 hover:bg-green-600 text-white font-black text-lg rounded-2xl py-4 transition-all">Torna alla Home</button>
       </div>
       {showReview && (
         <div className="w-full max-w-lg flex flex-col gap-2">
@@ -287,7 +287,7 @@ function PracticeMode({ title, emoji, pool, onFinish }) {
       <div className="bg-white rounded-3xl shadow-2xl p-8 text-center max-w-md w-full">
         <div className="text-5xl mb-3">📭</div>
         <p className="text-gray-700 font-bold mb-5">Nessuna domanda disponibile per questa sezione.</p>
-        <button onClick={onFinish} className="bg-green-600 hover:bg-green-500 text-white font-black rounded-2xl py-3 px-6 transition-all">Torna alla Home</button>
+        <button onClick={onFinish} className="bg-green-700 hover:bg-green-600 text-white font-black rounded-2xl py-3 px-6 transition-all">Torna alla Home</button>
       </div>
     </div>
   );
@@ -315,7 +315,7 @@ function PracticeMode({ title, emoji, pool, onFinish }) {
             <div className="bg-red-50 rounded-2xl p-3"><div className="text-2xl font-black text-red-600">{wrong}</div><div className="text-red-700 text-xs">Errate</div></div>
             <div className="bg-amber-50 rounded-2xl p-3"><div className="text-2xl font-black text-amber-600">{Math.round(correct / total * 100)}%</div><div className="text-amber-700 text-xs">Precisione</div></div>
           </div>
-          <button onClick={onFinish} className="w-full bg-green-600 hover:bg-green-500 text-white font-black text-lg rounded-2xl py-4 transition-all">Torna alla Home</button>
+          <button onClick={onFinish} className="w-full bg-green-700 hover:bg-green-600 text-white font-black text-lg rounded-2xl py-4 transition-all">Torna alla Home</button>
         </div>
       </div>
     );
@@ -356,7 +356,7 @@ function PracticeMode({ title, emoji, pool, onFinish }) {
           <div className={"rounded-2xl px-5 py-3 mb-3 text-center font-bold " + (selected === q.correct ? "bg-green-500 text-white" : "bg-red-500 text-white")}>
             {selected === q.correct ? "✓ Corretta!" : "✗ Errata — risposta giusta: " + q.correct.toUpperCase()}
           </div>
-          <button onClick={next} className="w-full bg-amber-500 hover:bg-amber-400 text-white font-black text-lg rounded-2xl py-4 transition-all shadow-lg">
+          <button onClick={next} className="w-full bg-amber-500 hover:bg-amber-400 text-green-950 font-black text-lg rounded-2xl py-4 transition-all shadow-lg">
             {idx + 1 < questions.length ? "Prossima →" : "Termina"}
           </button>
         </div>
