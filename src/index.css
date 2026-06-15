@@ -1,10 +1,19 @@
 @import "tailwindcss";
 
+/* Tipografia fluida: tutta la UI è dimensionata in rem, quindi scalando la
+   dimensione base del font con la larghezza del dispositivo l'intera interfaccia
+   (testi, spaziature, pulsanti) si adatta in modo continuo — più compatta sui
+   telefoni piccoli (≈320–375px), più ampia sui grandi (≈430px+), senza salti. */
+html {
+  font-size: clamp(15px, 4.1vw, 18px);
+}
+
 html, body {
   margin: 0;
   padding: 0;
   background: #052e16;
   -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;            /* nessuno scroll orizzontale su nessun device */
 }
 * {
   -webkit-user-select: none;
@@ -13,12 +22,23 @@ html, body {
 input {
   -webkit-user-select: text;
   user-select: text;
-  font-size: 16px;
+  font-size: 16px;               /* px fisso: evita lo zoom automatico su iOS */
 }
+
+/* Safe-area su tutti i lati (notch/Dynamic Island in verticale e orizzontale). */
 #root {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
+
+/* Altezza dinamica del viewport: tiene conto delle barre del browser mobile
+   (URL bar che appare/scompare), evitando tagli in fondo allo schermo. */
+@supports (min-height: 100dvh) {
+  .min-h-screen { min-height: 100dvh; }
+}
+
 @keyframes fly {
   0% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
