@@ -1,16 +1,55 @@
-# React + Vite
+# Corso Caccia — Simulatore Esame Venatorio (PWA)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+App live: **https://jrmtover.github.io/corso-caccia/**
 
-Currently, two official plugins are available:
+Progressive Web App per la preparazione all'esame di abilitazione venatoria
+(Lombardia). 824 domande, simulazione d'esame a tempo, simulazioni per sezione,
+modalità studio. Funziona **completamente offline** dopo la prima apertura.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
+- **Vite + React** (JSX precompilato, nessun Babel a runtime, nessun CDN)
+- **Tailwind CSS** compilato staticamente
+- **vite-plugin-pwa / Workbox** — service worker con precache dell'intero app-shell
 
-## React Compiler
+## Sviluppo
+```bash
+npm install
+npm run dev       # server di sviluppo
+npm run build     # build di produzione in dist/
+npm run preview   # anteprima della build
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Come aggiornare le domande
+Tutte le domande sono in **`src/data.js`**.
 
-## Expanding the ESLint configuration
+Formato di ogni domanda:
+```js
+_q("id", "Sezione", "Testo della domanda?", "Opzione A", "Opzione B", "Opzione C", "a")
+//        |          |                       |            |            |           ^ risposta corretta: "a" | "b" | "c"
+//        |          sezione                 opzioni
+//        id univoco
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Sezioni d'esame (bilanciamento 30 domande: 10/7/7/6):
+`Legislazione` (10) · `Zoologia` (7) · `Armi` (7) · `Tutela Natura` (6).
+Altre sezioni disponibili solo per le simulazioni per materia:
+`Pronto Soccorso`, `CaniDaCaccia`, `Ecologia`, `Riconoscimento`, `SpecieCacciabili`.
+
+Per aggiungere una domanda: inserisci una nuova riga `_q(...)` nell'array
+`QUESTIONS` (o `GEN_QUESTIONS`) con un `id` univoco.
+
+## Come ripubblicare
+Il deploy è **automatico**: a ogni `git push` sul branch `main`, la GitHub Action
+(`.github/workflows/deploy.yml`) builda e pubblica `dist/` su GitHub Pages.
+
+```bash
+git add -A
+git commit -m "Aggiorna domande"
+git push
+```
+In ~1 minuto il sito è aggiornato. Gli utenti con l'app già installata ricevono
+la nuova versione automaticamente al successivo avvio (service worker autoUpdate).
+
+## Installazione su telefono
+- **iOS (Safari):** Condividi → "Aggiungi a Home"
+- **Android (Chrome):** menu ⋮ → "Installa app" / "Aggiungi a schermata Home"
