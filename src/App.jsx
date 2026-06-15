@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { QUESTIONS, SECTION_COLORS, SECTION_EMOJI } from './data.js';
+import { loadHistory, saveHistory, clearHistory } from './storage.js';
 import './index.css';
 
 function shuffle(arr) {
@@ -81,9 +82,15 @@ function SectionBadge({ section }) {
   );
 }
 
-function HomeScreen({ player, setPlayer, leaderboard, onExam, onStudy, onSection }) {
+function HomeScreen({ player, setPlayer, history, onResetHistory, onExam, onStudy, onSection }) {
   const [open, setOpen] = useState(false);
-  const sorted = [...leaderboard].sort((a, b) => a.errors - b.errors || b.score - a.score);
+  const n = history.length;
+  const recent = [...history].reverse();                                   // più recenti in cima
+  const passRate = n ? Math.round(history.filter(e => e.passed).length / n * 100) : 0;
+  const avgErr = n ? history.reduce((s, e) => s + e.errors, 0) / n : 0;
+  const bestErr = n ? Math.min(...history.map(e => e.errors)) : 0;
+  const trend = history.slice(-12);                                        // ultimi 12 per il grafico
+  const trendMax = Math.max(6, ...trend.map(e => e.errors));
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-950 via-green-900 to-emerald-900 flex flex-col items-center p-4 pb-12">
       <div className="w-full max-w-lg mt-8 mb-5 text-center">
@@ -137,19 +144,55 @@ function HomeScreen({ player, setPlayer, leaderboard, onExam, onStudy, onSection
         </button>
       </div>
 
-      {sorted.length > 0 && (
+      {n > 0 && (
         <div className="w-full max-w-lg mt-7">
-          <p className="text-amber-400 text-sm font-black mb-2 text-center">🏆 CLASSIFICA SESSIONE</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-amber-400 text-sm font-black">📊 IL TUO ANDAMENTO</p>
+            <button onClick={onResetHistory} className="text-green-500 hover:text-red-400 text-xs font-bold transition-colors">Cancella storico</button>
+          </div>
+
+          {/* Statistiche aggregate */}
+          <div className="grid grid-cols-4 gap-2 mb-3">
+            <div className="bg-white/10 rounded-xl p-2.5 text-center backdrop-blur">
+              <div className="text-xl font-black text-white">{n}</div>
+              <div className="text-green-300 text-[10px]">Esami</div>
+            </div>
+            <div className="bg-white/10 rounded-xl p-2.5 text-center backdrop-blur">
+              <div className="text-xl font-black text-green-400">{passRate}%</div>
+              <div className="text-green-300 text-[10px]">Superati</div>
+            </div>
+            <div className="bg-white/10 rounded-xl p-2.5 text-center backdrop-blur">
+              <div className="text-xl font-black text-amber-300">{avgErr.toFixed(1)}</div>
+              <div className="text-green-300 text-[10px]">Media err.</div>
+            </div>
+            <div className="bg-white/10 rounded-xl p-2.5 text-center backdrop-blur">
+              <div className="text-xl font-black text-white">{bestErr}</div>
+              <div className="text-green-300 text-[10px]">Record err.</div>
+            </div>
+          </div>
+
+          {/* Grafico trend: errori per esame (più basso = meglio); verde se superato */}
+          {trend.length > 1 && (
+            <div className="bg-white/10 rounded-2xl p-3 mb-3 backdrop-blur">
+              <div className="flex items-end justify-between gap-1 h-20">
+                {trend.map((e, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center justify-end h-full" title={e.errors + " errori"}>
+                    <div className={"w-full rounded-t " + (e.passed ? "bg-green-500" : "bg-red-500")}
+                      style={{ height: Math.max(6, Math.round(e.errors / trendMax * 100)) + "%" }} />
+                  </div>
+                ))}
+              </div>
+              <p className="text-green-400 text-[10px] text-center mt-1.5">Errori per esame (verde = superato) · ultimi {trend.length}</p>
+            </div>
+          )}
+
+          {/* Storico recente */}
           <div className="bg-white/10 rounded-2xl overflow-hidden backdrop-blur divide-y divide-white/10">
-            {sorted.slice(0, 8).map((e, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-2.5">
-                <span className="text-lg w-6 text-center font-black"
-                  style={{ color: i === 0 ? "#fbbf24" : i === 1 ? "#cbd5e1" : i === 2 ? "#d97706" : "#4d7c5a" }}>
-                  {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
-                </span>
-                <span className="flex-1 text-white font-bold truncate">{e.player || "Anonimo"}</span>
-                <span className={"text-sm font-bold " + (e.passed ? "text-green-400" : "text-red-400")}>{e.passed ? "PROMOSSO" : "RESPINTO"}</span>
-                <span className="text-white text-sm w-14 text-right">{e.score}/{e.total}</span>
+            {recent.slice(0, 6).map((e, i) => (
+              <div key={i} className="flex items-center gap-2 px-4 py-2.5">
+                <span className="text-green-300 text-xs flex-1 truncate">{e.date}</span>
+                <span className={"text-xs font-bold " + (e.passed ? "text-green-400" : "text-red-400")}>{e.passed ? "PROMOSSO" : "RESPINTO"}</span>
+                <span className="text-white text-xs w-12 text-right">{e.score}/{e.total}</span>
                 <span className="text-red-300 text-xs w-12 text-right">{e.errors} err</span>
               </div>
             ))}
@@ -161,31 +204,30 @@ function HomeScreen({ player, setPlayer, leaderboard, onExam, onStudy, onSection
 }
 
 function ExamMode({ player, onFinish, onExit }) {
-  const questions = useMemo(buildExam, []);
+  const questions = useMemo(() => buildExam(), []);
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState({});
   const [left, setLeft] = useState(EXAM_TIME);
   const [phase, setPhase] = useState("quiz");
-  const phaseRef = useRef(phase);
-  phaseRef.current = phase;
 
+  // L'esame è concluso se consegnato manualmente (phase === "review") OPPURE se il
+  // tempo è scaduto (left <= 0): stato derivato, niente setState dentro l'effetto.
+  const finished = phase === "review" || left <= 0;
+
+  // Timer: scorre solo finché l'esame è in corso. A consegna/scadenza l'effetto si
+  // ferma e "left" resta congelato (così il tempo impiegato a fine esame è corretto).
   useEffect(() => {
-    const t = setInterval(() => {
-      setLeft(l => {
-        if (l <= 1) { clearInterval(t); if (phaseRef.current === "quiz") setPhase("review"); return 0; }
-        return l - 1;
-      });
-    }, 1000);
-    return () => clearInterval(t);
-  }, []);
+    if (finished) return;
+    const t = setTimeout(() => setLeft(l => l - 1), 1000);
+    return () => clearTimeout(t);
+  }, [finished, left]);
 
   const q = questions[idx];
   const answered = Object.keys(answers).length;
-  const wrongCount = questions.filter((qq, i) => answers[i] !== undefined && answers[i] !== qq.correct).length;
   const pick = (opt) => { setAnswers(a => ({ ...a, [idx]: opt })); };
   const go = (d) => { setIdx(i => Math.min(questions.length - 1, Math.max(0, i + d))); };
 
-  if (phase === "review") {
+  if (finished) {
     const finalWrong = questions.filter((qq, i) => answers[i] !== qq.correct).length;
     const finalCorrect = questions.length - finalWrong;
     return <ExamResults player={player} questions={questions} answers={answers}
@@ -206,7 +248,7 @@ function ExamMode({ player, onFinish, onExit }) {
         <ProgressBar current={answered} total={questions.length} color="bg-green-500" />
         <div className="flex justify-between mt-1.5 text-xs">
           <span className="text-green-400 font-bold">Risposte: {answered}/{questions.length}</span>
-          <span className={"font-bold " + (wrongCount > MAX_ERRORS ? "text-red-400" : "text-amber-300")}>Errori: {wrongCount} / max {MAX_ERRORS}</span>
+          <span className="text-amber-300 font-bold">Max {MAX_ERRORS} errori consentiti</span>
         </div>
       </div>
       <div className="w-full max-w-lg mb-3"><SectionBadge section={q.section} /></div>
@@ -368,19 +410,31 @@ function PracticeMode({ title, emoji, pool, onFinish }) {
 export default function App() {
   const [view, setView] = useState("home");
   const [player, setPlayer] = useState("");
-  const [leaderboard, setLeaderboard] = useState([]);
+  const [history, setHistory] = useState(() => loadHistory());   // storico esami persistente
   const [section, setSection] = useState(null);
 
   const recordExam = (res) => {
-    setLeaderboard(lb => [...lb, { ...res, date: new Date().toLocaleDateString("it-IT") }]);
+    const now = new Date();
+    const entry = {
+      ...res,
+      ts: now.toISOString(),
+      date: now.toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+    };
+    setHistory(h => {
+      const updated = [...h, entry];
+      saveHistory(updated);
+      return updated;
+    });
     setView("home");
   };
+
+  const resetHistory = () => { clearHistory(); setHistory([]); };
 
   if (view === "exam") return <ExamMode player={player || "Giocatore"} onFinish={recordExam} onExit={() => setView("home")} />;
   if (view === "study") return <PracticeMode title="Studio" emoji="📖" pool={QUESTIONS} onFinish={() => setView("home")} />;
   if (view === "section" && section) return <PracticeMode title={section.label} emoji={section.emoji} pool={POOLS[section.key] || []} onFinish={() => setView("home")} />;
 
-  return <HomeScreen player={player} setPlayer={setPlayer} leaderboard={leaderboard}
+  return <HomeScreen player={player} setPlayer={setPlayer} history={history} onResetHistory={resetHistory}
     onExam={() => setView("exam")} onStudy={() => setView("study")}
     onSection={(s) => { setSection(s); setView("section"); }} />;
 }
