@@ -232,8 +232,95 @@ function HomeScreen({ player, setPlayer, onRegister, history, onResetHistory, cl
   );
 }
 
+function fmtDate(iso) {
+  try { return new Date(iso).toLocaleString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }); }
+  catch { return ""; }
+}
+
+function StatBox({ value, label, color = "text-white" }) {
+  return (
+    <div className="bg-white/10 rounded-2xl p-3 text-center backdrop-blur">
+      <div className={"text-2xl font-black " + color}>{value}</div>
+      <div className="text-green-300 text-[11px] mt-0.5 leading-tight">{label}</div>
+    </div>
+  );
+}
+
+// ============ DETTAGLIO GIOCATORE (statistiche precise) ============
+function PlayerDetail({ player: p, isMe, onBack }) {
+  const exams = p.examsTaken || 0;
+  const rate = exams ? Math.round((p.passedCount || 0) / exams * 100) : 0;
+  const avgErr = exams ? (p.sumErrors || 0) / exams : 0;
+  const avgTime = exams ? Math.round((p.sumTime || 0) / exams) : 0;   // secondi
+  const sec = p.sec || {};
+  const hasSec = Object.keys(sec).length > 0;
+  const hist = [...(p.history || [])].reverse();
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-950 via-green-900 to-emerald-900 flex flex-col items-center p-4 pb-12">
+      <div className="w-full max-w-lg mt-5 mb-4 flex justify-between items-center">
+        <button onClick={onBack} className="text-green-400 hover:text-white text-sm font-bold transition-colors">← Classifica</button>
+        <span className="text-white text-base font-black truncate px-2">📊 {p.name || "Anonimo"}{isMe ? " (tu)" : ""}</span>
+        <span className="w-16" />
+      </div>
+
+      <div className="w-full max-w-lg flex flex-col gap-3">
+        {/* Statistiche principali */}
+        <div className="grid grid-cols-2 gap-2">
+          <StatBox value={exams} label="Esami svolti" />
+          <StatBox value={rate + "%"} label="Esami superati" color="text-green-400" />
+          <StatBox value={avgTime ? fmtTime(avgTime) : "—"} label="Tempo medio / esame" color="text-amber-300" />
+          <StatBox value={p.bestTime != null ? fmtTime(p.bestTime) : "—"} label="Miglior tempo (superati)" color="text-amber-300" />
+          <StatBox value={p.bestErrors ?? "—"} label="Record errori (min)" />
+          <StatBox value={avgErr.toFixed(1)} label="Media errori / esame" />
+        </div>
+
+        {/* Percentuali per sezione */}
+        <div className="bg-white/10 rounded-2xl p-4 backdrop-blur">
+          <p className="text-amber-400 text-sm font-black mb-3">% Risposte corrette per sezione</p>
+          {hasSec ? EXAM_BLUEPRINT.map(b => {
+            const s = sec[b.section];
+            const pct = s && s.t ? Math.round(s.c / s.t * 100) : null;
+            return (
+              <div key={b.section} className="mb-3 last:mb-0">
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-white font-bold">{SECTION_EMOJI[b.section]} {b.section}</span>
+                  <span className="text-green-300">{pct == null ? "—" : pct + "%"}{s ? ` · ${s.c}/${s.t}` : ""}</span>
+                </div>
+                <div className="w-full bg-white/10 rounded-full h-2.5">
+                  <div className="h-2.5 rounded-full transition-all" style={{ width: (pct || 0) + "%", backgroundColor: SECTION_COLORS[b.section] }} />
+                </div>
+              </div>
+            );
+          }) : (
+            <p className="text-green-500 text-xs">Dati per sezione non ancora disponibili — verranno raccolti dai prossimi esami.</p>
+          )}
+        </div>
+
+        {/* Storico esami */}
+        {hist.length > 0 && (
+          <div className="bg-white/10 rounded-2xl overflow-hidden backdrop-blur">
+            <p className="text-amber-400 text-sm font-black px-4 pt-3 pb-2">Storico esami (ultimi {hist.length})</p>
+            <div className="divide-y divide-white/10">
+              {hist.map((h, i) => (
+                <div key={i} className="flex items-center gap-2 px-4 py-2.5 text-xs">
+                  <span className="text-green-300 flex-1 truncate">{fmtDate(h.ts)}</span>
+                  <span className={"font-bold " + (h.passed ? "text-green-400" : "text-red-400")}>{h.passed ? "PROMOSSO" : "RESPINTO"}</span>
+                  <span className="text-white w-10 text-right">{h.score}/30</span>
+                  <span className="text-amber-300 w-12 text-right">⏱ {fmtTime(h.time || 0)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ============ CLASSIFICA GLOBALE (schermata dedicata) ============
 function LeaderboardScreen({ leaderboard, player, onBack }) {
+  const [selected, setSelected] = useState(null);
   // Ordina per % superati, poi minor record errori, poi più esami.
   const ranked = (leaderboard || []).map(p => ({
     ...p,
@@ -241,6 +328,11 @@ function LeaderboardScreen({ leaderboard, player, onBack }) {
   })).sort((a, b) => b.rate - a.rate || a.bestErrors - b.bestErrors || b.examsTaken - a.examsTaken);
   const myName = player.trim().toLowerCase();
   const myRank = ranked.findIndex(p => (p.name || "").trim().toLowerCase() === myName && myName);
+
+  if (selected) {
+    const isMe = (selected.name || "").trim().toLowerCase() === myName && !!myName;
+    return <PlayerDetail player={selected} isMe={isMe} onBack={() => setSelected(null)} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-950 via-green-900 to-emerald-900 flex flex-col items-center p-4 pb-12">
@@ -275,7 +367,8 @@ function LeaderboardScreen({ leaderboard, player, onBack }) {
               {ranked.slice(0, 50).map((p, i) => {
                 const mine = (p.name || "").trim().toLowerCase() === myName && myName;
                 return (
-                  <div key={i} className={"flex items-center gap-2 px-3 py-3 " + (mine ? "bg-amber-400/15" : "")}>
+                  <button key={i} onClick={() => setSelected(p)}
+                    className={"w-full flex items-center gap-2 px-3 py-3 text-left hover:bg-white/10 active:bg-white/15 transition-colors " + (mine ? "bg-amber-400/15" : "")}>
                     <span className="w-6 text-center font-black text-sm"
                       style={{ color: i === 0 ? "#fbbf24" : i === 1 ? "#cbd5e1" : i === 2 ? "#d97706" : "#4d7c5a" }}>
                       {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
@@ -284,13 +377,14 @@ function LeaderboardScreen({ leaderboard, player, onBack }) {
                     <span className="text-green-300 text-xs w-9 text-right" title="esami svolti">{p.examsTaken}</span>
                     <span className="text-green-400 text-xs font-bold w-10 text-right" title="% superati">{Math.round(p.rate * 100)}%</span>
                     <span className="text-amber-300 text-xs w-12 text-right" title="record errori (più basso = meglio)">{p.bestErrors} err</span>
-                  </div>
+                    <span className="text-green-500 text-xs w-3 text-right">›</span>
+                  </button>
                 );
               })}
             </div>
           </>
         )}
-        <p className="text-green-500 text-[10px] mt-3 text-center">🎯 esami svolti · % superati · record errori (più basso = meglio)<br />Classifica condivisa e visibile a tutti i giocatori.</p>
+        <p className="text-green-500 text-[10px] mt-3 text-center">Tocca un giocatore per le statistiche dettagliate.<br />🎯 esami · % superati · record errori · classifica condivisa con tutti.</p>
       </div>
     </div>
   );
@@ -323,9 +417,17 @@ function ExamMode({ player, onFinish, onExit }) {
   if (finished) {
     const finalWrong = questions.filter((qq, i) => answers[i] !== qq.correct).length;
     const finalCorrect = questions.length - finalWrong;
+    const timeUsed = EXAM_TIME - left;
+    // Corrette/totali per sezione (per le statistiche dettagliate in classifica).
+    const perSection = {};
+    questions.forEach((qq, i) => {
+      const s = (perSection[qq.section] = perSection[qq.section] || { correct: 0, total: 0 });
+      s.total++;
+      if (answers[i] === qq.correct) s.correct++;
+    });
     return <ExamResults player={player} questions={questions} answers={answers}
-      correct={finalCorrect} wrong={finalWrong} passed={finalWrong <= MAX_ERRORS} timeUsed={EXAM_TIME - left}
-      onFinish={() => onFinish({ player, score: finalCorrect, total: questions.length, errors: finalWrong, passed: finalWrong <= MAX_ERRORS })} />;
+      correct={finalCorrect} wrong={finalWrong} passed={finalWrong <= MAX_ERRORS} timeUsed={timeUsed}
+      onFinish={() => onFinish({ player, score: finalCorrect, total: questions.length, errors: finalWrong, passed: finalWrong <= MAX_ERRORS, timeUsed, perSection })} />;
   }
 
   const danger = left <= 120;

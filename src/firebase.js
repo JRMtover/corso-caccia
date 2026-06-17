@@ -73,25 +73,48 @@ export async function registerPlayer(name, ipHash) {
   }, { merge: true });
 }
 
-// Registra l'esito di un esame nelle statistiche aggregate del giocatore (transazione
-// atomica: incrementi, minimo errori, massimo punteggio).
+// Registra l'esito di un esame (transazione atomica). Mantiene:
+// - aggregati: esami, superati, somma errori, somma tempo, record errori/punteggio/tempo;
+// - per sezione: corrette/totali cumulative (per le percentuali nel dettaglio);
+// - storico: ultimi 20 esami (data, punteggio, errori, esito, tempo) per la schermata dettaglio.
 export async function recordExamResult(result, name, ipHash) {
   if (!isConfigured) return;
   const uid = await uidPromise;
   if (!uid) return;
   const ref = doc(db, 'players', uid);
+  const nowIso = new Date().toISOString();
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const p = snap.exists() ? snap.data() : {};
+    const time = result.timeUsed || 0;
     const examsTaken = (p.examsTaken || 0) + 1;
     const passedCount = (p.passedCount || 0) + (result.passed ? 1 : 0);
     const sumErrors = (p.sumErrors || 0) + result.errors;
+    const sumTime = (p.sumTime || 0) + time;
     const bestErrors = Math.min(p.bestErrors ?? 99, result.errors);
     const bestScore = Math.max(p.bestScore ?? 0, result.score);
+    // miglior tempo solo tra gli esami superati
+    let bestTime = p.bestTime ?? null;
+    if (result.passed) bestTime = bestTime == null ? time : Math.min(bestTime, time);
+
+    // aggregati per sezione: { Sezione: { c: corrette, t: totali } }
+    const sec = { ...(p.sec || {}) };
+    for (const [s, v] of Object.entries(result.perSection || {})) {
+      const cur = sec[s] || { c: 0, t: 0 };
+      sec[s] = { c: cur.c + (v.correct || 0), t: cur.t + (v.total || 0) };
+    }
+
+    // storico (ultimi 20 esami)
+    const history = [...(p.history || []), {
+      ts: nowIso, score: result.score, errors: result.errors, passed: !!result.passed, time,
+    }].slice(-20);
+
     tx.set(ref, {
       name: cleanName(name || p.name),
       ipHash: ipHash ?? p.ipHash ?? null,
-      examsTaken, passedCount, sumErrors, bestErrors, bestScore,
+      examsTaken, passedCount, sumErrors, sumTime,
+      bestErrors, bestScore, bestTime,
+      sec, history,
       lastErrors: result.errors, lastPassed: !!result.passed,
       updatedAt: serverTimestamp(),
     }, { merge: true });
