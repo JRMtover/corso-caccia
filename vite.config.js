@@ -5,6 +5,21 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: '/corso-caccia/',
+  build: {
+    // Firebase/Firestore è una libreria grande ma viene precache una sola volta per
+    // l'uso offline: alziamo la soglia d'avviso (non è codice sul percorso critico web).
+    chunkSizeWarningLimit: 800,
+    // Separa le librerie in chunk dedicati: migliora il parsing al primo avvio e fa
+    // sì che gli aggiornamenti del codice app non invalidino la cache di Firebase/React.
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('/node_modules/firebase/') || id.includes('/node_modules/@firebase/')) return 'firebase';
+          if (id.includes('/node_modules/react') || id.includes('/node_modules/scheduler/')) return 'react';
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),

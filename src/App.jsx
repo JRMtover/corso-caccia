@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { QUESTIONS, SECTION_COLORS, SECTION_EMOJI } from './data.js';
 import { loadHistory, saveHistory, clearHistory } from './storage.js';
+import { isConfigured as cloudEnabled, hashIp, registerPlayer, recordExamResult, subscribeLeaderboard } from './firebase.js';
 import './index.css';
 
 function shuffle(arr) {
@@ -82,7 +83,7 @@ function SectionBadge({ section }) {
   );
 }
 
-function HomeScreen({ player, setPlayer, history, onResetHistory, onExam, onStudy, onSection }) {
+function HomeScreen({ player, setPlayer, onRegister, history, onResetHistory, cloudEnabled, leaderboard, onExam, onStudy, onSection }) {
   const [open, setOpen] = useState(false);
   const n = history.length;
   const recent = [...history].reverse();                                   // più recenti in cima
@@ -91,6 +92,15 @@ function HomeScreen({ player, setPlayer, history, onResetHistory, onExam, onStud
   const bestErr = n ? Math.min(...history.map(e => e.errors)) : 0;
   const trend = history.slice(-12);                                        // ultimi 12 per il grafico
   const trendMax = Math.max(6, ...trend.map(e => e.errors));
+
+  // Classifica globale: ordina per % superati, poi minor record errori, poi più esami.
+  const ranked = (leaderboard || []).map(p => ({
+    ...p,
+    rate: p.examsTaken ? p.passedCount / p.examsTaken : 0,
+    avg: p.examsTaken ? p.sumErrors / p.examsTaken : 0,
+  })).sort((a, b) => b.rate - a.rate || a.bestErrors - b.bestErrors || b.examsTaken - a.examsTaken);
+  const myName = player.trim().toLowerCase();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-950 via-green-900 to-emerald-900 flex flex-col items-center p-4 pb-12">
       <div className="w-full max-w-lg mt-8 mb-5 text-center">
@@ -103,8 +113,10 @@ function HomeScreen({ player, setPlayer, history, onResetHistory, onExam, onStud
       <div className="w-full max-w-lg mb-5">
         <label htmlFor="player" className="block text-green-300 text-xs font-bold mb-1 ml-1">GIOCATORE</label>
         <input id="player" value={player} onChange={e => setPlayer(e.target.value)}
+          onBlur={e => onRegister(e.target.value)} maxLength={30}
           placeholder="Inserisci il tuo nome…"
           className="w-full bg-white/10 text-white placeholder-green-600 rounded-2xl px-4 py-3 text-lg font-bold outline-none border-2 border-transparent focus:border-amber-400 transition-colors backdrop-blur" />
+        {cloudEnabled && <p className="text-green-500 text-xs mt-1 ml-1">Il nome ti fa comparire nella classifica globale condivisa.</p>}
       </div>
 
       <div className="w-full max-w-lg flex flex-col gap-3">
@@ -197,6 +209,39 @@ function HomeScreen({ player, setPlayer, history, onResetHistory, onExam, onStud
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Classifica globale condivisa tra tutti i giocatori (Firebase) */}
+      {cloudEnabled && (
+        <div className="w-full max-w-lg mt-7">
+          <p className="text-amber-400 text-sm font-black mb-2">🏆 CLASSIFICA GLOBALE</p>
+          {leaderboard === null ? (
+            <div className="bg-white/10 rounded-2xl p-4 text-center text-green-300 text-sm backdrop-blur">Caricamento classifica…</div>
+          ) : ranked.length === 0 ? (
+            <div className="bg-white/10 rounded-2xl p-4 text-center text-green-300 text-sm backdrop-blur">
+              Nessun giocatore ancora in classifica. Inserisci il nome e completa un esame per essere il primo! 🦆
+            </div>
+          ) : (
+            <div className="bg-white/10 rounded-2xl overflow-hidden backdrop-blur divide-y divide-white/10">
+              {ranked.slice(0, 20).map((p, i) => {
+                const mine = p.name && p.name.trim().toLowerCase() === myName;
+                return (
+                  <div key={i} className={"flex items-center gap-2 px-3 py-2.5 " + (mine ? "bg-amber-400/15" : "")}>
+                    <span className="w-6 text-center font-black text-sm"
+                      style={{ color: i === 0 ? "#fbbf24" : i === 1 ? "#cbd5e1" : i === 2 ? "#d97706" : "#4d7c5a" }}>
+                      {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
+                    </span>
+                    <span className="flex-1 text-white font-bold truncate text-sm">{p.name || "Anonimo"}</span>
+                    <span className="text-green-300 text-xs w-9 text-right" title="esami svolti">{p.examsTaken}🎯</span>
+                    <span className="text-green-400 text-xs font-bold w-10 text-right" title="% superati">{Math.round(p.rate * 100)}%</span>
+                    <span className="text-amber-300 text-xs w-12 text-right" title="record errori (più basso = meglio)">{p.bestErrors} err</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <p className="text-green-500 text-[10px] mt-1.5 text-center">🎯 esami · % superati · record errori · visibile a tutti i giocatori</p>
         </div>
       )}
     </div>
@@ -410,8 +455,23 @@ function PracticeMode({ title, emoji, pool, onFinish }) {
 export default function App() {
   const [view, setView] = useState("home");
   const [player, setPlayer] = useState("");
-  const [history, setHistory] = useState(() => loadHistory());   // storico esami persistente
+  const [history, setHistory] = useState(() => loadHistory());   // storico esami persistente (locale)
   const [section, setSection] = useState(null);
+  const [ipHash, setIpHash] = useState(null);                    // hash IP (identificatore, mai mostrato)
+  const [leaderboard, setLeaderboard] = useState(null);          // classifica globale: null=in attesa, []=vuota
+
+  // All'avvio: calcola l'hash dell'IP e iscriviti alla classifica globale (realtime).
+  useEffect(() => {
+    if (!cloudEnabled) return;
+    hashIp().then(setIpHash);
+    const unsub = subscribeLeaderboard(setLeaderboard);
+    return () => { if (unsub) unsub(); };
+  }, []);
+
+  // Registra/aggiorna nome + hash IP sul backend quando l'utente conferma il nome.
+  const registerName = (name) => {
+    if (cloudEnabled && name.trim()) registerPlayer(name, ipHash);
+  };
 
   const recordExam = (res) => {
     const now = new Date();
@@ -425,6 +485,8 @@ export default function App() {
       saveHistory(updated);
       return updated;
     });
+    // Aggiorna anche la classifica globale (best-effort, non blocca la UI).
+    if (cloudEnabled) recordExamResult(res, res.player || player, ipHash);
     setView("home");
   };
 
@@ -434,7 +496,9 @@ export default function App() {
   if (view === "study") return <PracticeMode title="Studio" emoji="📖" pool={QUESTIONS} onFinish={() => setView("home")} />;
   if (view === "section" && section) return <PracticeMode title={section.label} emoji={section.emoji} pool={POOLS[section.key] || []} onFinish={() => setView("home")} />;
 
-  return <HomeScreen player={player} setPlayer={setPlayer} history={history} onResetHistory={resetHistory}
+  return <HomeScreen player={player} setPlayer={setPlayer} onRegister={registerName}
+    history={history} onResetHistory={resetHistory}
+    cloudEnabled={cloudEnabled} leaderboard={leaderboard}
     onExam={() => setView("exam")} onStudy={() => setView("study")}
     onSection={(s) => { setSection(s); setView("section"); }} />;
 }
