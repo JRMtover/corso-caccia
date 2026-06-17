@@ -83,8 +83,9 @@ function SectionBadge({ section }) {
   );
 }
 
-function HomeScreen({ player, setPlayer, onRegister, history, onResetHistory, cloudEnabled, leaderboard, onExam, onStudy, onSection }) {
+function HomeScreen({ player, setPlayer, onRegister, history, onResetHistory, cloudEnabled, onExam, onStudy, onSection, onLeaderboard }) {
   const [open, setOpen] = useState(false);
+  const [nameError, setNameError] = useState(false);
   const n = history.length;
   const recent = [...history].reverse();                                   // più recenti in cima
   const passRate = n ? Math.round(history.filter(e => e.passed).length / n * 100) : 0;
@@ -93,13 +94,18 @@ function HomeScreen({ player, setPlayer, onRegister, history, onResetHistory, cl
   const trend = history.slice(-12);                                        // ultimi 12 per il grafico
   const trendMax = Math.max(6, ...trend.map(e => e.errors));
 
-  // Classifica globale: ordina per % superati, poi minor record errori, poi più esami.
-  const ranked = (leaderboard || []).map(p => ({
-    ...p,
-    rate: p.examsTaken ? p.passedCount / p.examsTaken : 0,
-    avg: p.examsTaken ? p.sumErrors / p.examsTaken : 0,
-  })).sort((a, b) => b.rate - a.rate || a.bestErrors - b.bestErrors || b.examsTaken - a.examsTaken);
-  const myName = player.trim().toLowerCase();
+  // Il nome è obbligatorio per avviare le simulazioni: se manca, evidenzia il campo.
+  const requireName = (fn) => () => {
+    if (!player.trim()) {
+      setNameError(true);
+      const el = document.getElementById('player');
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.focus(); }
+    } else {
+      setNameError(false);
+      fn();
+    }
+  };
+  const missingName = nameError && !player.trim();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-950 via-green-900 to-emerald-900 flex flex-col items-center p-4 pb-12">
@@ -112,15 +118,18 @@ function HomeScreen({ player, setPlayer, onRegister, history, onResetHistory, cl
 
       <div className="w-full max-w-lg mb-5">
         <label htmlFor="player" className="block text-green-300 text-xs font-bold mb-1 ml-1">GIOCATORE</label>
-        <input id="player" value={player} onChange={e => setPlayer(e.target.value)}
+        <input id="player" value={player}
+          onChange={e => { setPlayer(e.target.value); if (e.target.value.trim()) setNameError(false); }}
           onBlur={e => onRegister(e.target.value)} maxLength={30}
           placeholder="Inserisci il tuo nome…"
-          className="w-full bg-white/10 text-white placeholder-green-600 rounded-2xl px-4 py-3 text-lg font-bold outline-none border-2 border-transparent focus:border-amber-400 transition-colors backdrop-blur" />
-        {cloudEnabled && <p className="text-green-500 text-xs mt-1 ml-1">Il nome ti fa comparire nella classifica globale condivisa.</p>}
+          className={"w-full bg-white/10 text-white placeholder-green-600 rounded-2xl px-4 py-3 text-lg font-bold outline-none border-2 transition-colors backdrop-blur " + (missingName ? "border-red-500" : "border-transparent focus:border-amber-400")} />
+        {missingName
+          ? <p className="text-red-400 text-xs mt-1 ml-1 font-bold">⚠️ Inserisci il tuo nome per avviare le simulazioni.</p>
+          : <p className="text-green-500 text-xs mt-1 ml-1">Obbligatorio per le simulazioni{cloudEnabled ? " e per comparire nella classifica globale" : ""}.</p>}
       </div>
 
       <div className="w-full max-w-lg flex flex-col gap-3">
-        <button onClick={onExam}
+        <button onClick={requireName(onExam)}
           className="bg-green-700 hover:bg-green-600 active:bg-green-800 text-white font-black text-xl rounded-2xl py-5 px-6 shadow-xl transition-all duration-150 flex items-center gap-4 text-left">
           <span className="text-3xl">📝</span>
           <div><div>Simulazione Esame</div><div className="text-sm font-normal text-green-100">30 domande · 30 min · max 4 errori</div></div>
@@ -136,7 +145,7 @@ function HomeScreen({ player, setPlayer, onRegister, history, onResetHistory, cl
           {open && (
             <div className="px-3 pb-3 pt-1 flex flex-col gap-2 max-h-96 overflow-y-auto">
               {SECTION_SIMS.map(s => (
-                <button key={s.key} onClick={() => onSection(s)}
+                <button key={s.key} onClick={requireName(() => onSection(s))}
                   className="w-full flex items-center gap-3 rounded-xl px-4 py-3 text-left bg-white/10 hover:bg-white/20 active:scale-95 transition-all">
                   <span className="text-2xl">{s.emoji}</span>
                   <div className="flex-1">
@@ -154,6 +163,14 @@ function HomeScreen({ player, setPlayer, onRegister, history, onResetHistory, cl
           <span className="text-3xl">📖</span>
           <div><div>Modalità Studio</div><div className="text-sm font-normal text-green-950">Tutte le domande con feedback immediato</div></div>
         </button>
+
+        {cloudEnabled && (
+          <button onClick={onLeaderboard}
+            className="bg-white/10 hover:bg-white/20 active:scale-95 text-white font-black text-xl rounded-2xl py-5 px-6 shadow-xl transition-all duration-150 flex items-center gap-4 text-left border border-white/10">
+            <span className="text-3xl">🏆</span>
+            <div><div>Classifica Globale</div><div className="text-sm font-normal text-green-300">Le statistiche di tutti i giocatori</div></div>
+          </button>
+        )}
       </div>
 
       {n > 0 && (
@@ -211,39 +228,70 @@ function HomeScreen({ player, setPlayer, onRegister, history, onResetHistory, cl
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Classifica globale condivisa tra tutti i giocatori (Firebase) */}
-      {cloudEnabled && (
-        <div className="w-full max-w-lg mt-7">
-          <p className="text-amber-400 text-sm font-black mb-2">🏆 CLASSIFICA GLOBALE</p>
-          {leaderboard === null ? (
-            <div className="bg-white/10 rounded-2xl p-4 text-center text-green-300 text-sm backdrop-blur">Caricamento classifica…</div>
-          ) : ranked.length === 0 ? (
-            <div className="bg-white/10 rounded-2xl p-4 text-center text-green-300 text-sm backdrop-blur">
-              Nessun giocatore ancora in classifica. Inserisci il nome e completa un esame per essere il primo! 🦆
+// ============ CLASSIFICA GLOBALE (schermata dedicata) ============
+function LeaderboardScreen({ leaderboard, player, onBack }) {
+  // Ordina per % superati, poi minor record errori, poi più esami.
+  const ranked = (leaderboard || []).map(p => ({
+    ...p,
+    rate: p.examsTaken ? p.passedCount / p.examsTaken : 0,
+  })).sort((a, b) => b.rate - a.rate || a.bestErrors - b.bestErrors || b.examsTaken - a.examsTaken);
+  const myName = player.trim().toLowerCase();
+  const myRank = ranked.findIndex(p => (p.name || "").trim().toLowerCase() === myName && myName);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-950 via-green-900 to-emerald-900 flex flex-col items-center p-4 pb-12">
+      <div className="w-full max-w-lg mt-5 mb-4">
+        <div className="flex justify-between items-center mb-3">
+          <button onClick={onBack} className="text-green-400 hover:text-white text-sm font-bold transition-colors">← Home</button>
+          <span className="text-white text-base font-black">🏆 Classifica Globale</span>
+          <span className="w-12" />
+        </div>
+        {myRank >= 0 && (
+          <p className="text-amber-300 text-sm font-bold text-center mb-2">Sei in posizione #{myRank + 1} su {ranked.length} giocatori</p>
+        )}
+      </div>
+
+      <div className="w-full max-w-lg">
+        {leaderboard === null ? (
+          <div className="bg-white/10 rounded-2xl p-6 text-center text-green-300 backdrop-blur">Caricamento classifica…</div>
+        ) : ranked.length === 0 ? (
+          <div className="bg-white/10 rounded-2xl p-6 text-center text-green-300 backdrop-blur">
+            Nessun giocatore ancora in classifica.<br />Inserisci il nome e completa un esame per essere il primo! 🦆
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 px-3 pb-1.5 text-green-500 text-[10px] font-bold uppercase">
+              <span className="w-6 text-center">#</span>
+              <span className="flex-1">Giocatore</span>
+              <span className="w-9 text-right">🎯</span>
+              <span className="w-10 text-right">% ok</span>
+              <span className="w-12 text-right">record</span>
             </div>
-          ) : (
             <div className="bg-white/10 rounded-2xl overflow-hidden backdrop-blur divide-y divide-white/10">
-              {ranked.slice(0, 20).map((p, i) => {
-                const mine = p.name && p.name.trim().toLowerCase() === myName;
+              {ranked.slice(0, 50).map((p, i) => {
+                const mine = (p.name || "").trim().toLowerCase() === myName && myName;
                 return (
-                  <div key={i} className={"flex items-center gap-2 px-3 py-2.5 " + (mine ? "bg-amber-400/15" : "")}>
+                  <div key={i} className={"flex items-center gap-2 px-3 py-3 " + (mine ? "bg-amber-400/15" : "")}>
                     <span className="w-6 text-center font-black text-sm"
                       style={{ color: i === 0 ? "#fbbf24" : i === 1 ? "#cbd5e1" : i === 2 ? "#d97706" : "#4d7c5a" }}>
                       {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
                     </span>
-                    <span className="flex-1 text-white font-bold truncate text-sm">{p.name || "Anonimo"}</span>
-                    <span className="text-green-300 text-xs w-9 text-right" title="esami svolti">{p.examsTaken}🎯</span>
+                    <span className="flex-1 text-white font-bold truncate text-sm">{p.name || "Anonimo"}{mine ? " (tu)" : ""}</span>
+                    <span className="text-green-300 text-xs w-9 text-right" title="esami svolti">{p.examsTaken}</span>
                     <span className="text-green-400 text-xs font-bold w-10 text-right" title="% superati">{Math.round(p.rate * 100)}%</span>
                     <span className="text-amber-300 text-xs w-12 text-right" title="record errori (più basso = meglio)">{p.bestErrors} err</span>
                   </div>
                 );
               })}
             </div>
-          )}
-          <p className="text-green-500 text-[10px] mt-1.5 text-center">🎯 esami · % superati · record errori · visibile a tutti i giocatori</p>
-        </div>
-      )}
+          </>
+        )}
+        <p className="text-green-500 text-[10px] mt-3 text-center">🎯 esami svolti · % superati · record errori (più basso = meglio)<br />Classifica condivisa e visibile a tutti i giocatori.</p>
+      </div>
     </div>
   );
 }
@@ -495,10 +543,12 @@ export default function App() {
   if (view === "exam") return <ExamMode player={player || "Giocatore"} onFinish={recordExam} onExit={() => setView("home")} />;
   if (view === "study") return <PracticeMode title="Studio" emoji="📖" pool={QUESTIONS} onFinish={() => setView("home")} />;
   if (view === "section" && section) return <PracticeMode title={section.label} emoji={section.emoji} pool={POOLS[section.key] || []} onFinish={() => setView("home")} />;
+  if (view === "leaderboard") return <LeaderboardScreen leaderboard={leaderboard} player={player} onBack={() => setView("home")} />;
 
   return <HomeScreen player={player} setPlayer={setPlayer} onRegister={registerName}
     history={history} onResetHistory={resetHistory}
-    cloudEnabled={cloudEnabled} leaderboard={leaderboard}
+    cloudEnabled={cloudEnabled}
     onExam={() => setView("exam")} onStudy={() => setView("study")}
-    onSection={(s) => { setSection(s); setView("section"); }} />;
+    onSection={(s) => { setSection(s); setView("section"); }}
+    onLeaderboard={() => setView("leaderboard")} />;
 }
