@@ -3,6 +3,7 @@ import { QUESTIONS, SECTION_COLORS, SECTION_EMOJI } from './data.js';
 import { loadHistory, saveHistory, clearHistory } from './storage.js';
 import { isConfigured as cloudEnabled, hashIp, registerPlayer, recordExamResult, subscribeLeaderboard } from './firebase.js';
 import { EXPLANATIONS } from './explanations.js';
+import FaunaGame from './FaunaGame.jsx';
 import './index.css';
 
 function shuffle(arr) {
@@ -84,7 +85,7 @@ function SectionBadge({ section }) {
   );
 }
 
-function HomeScreen({ player, setPlayer, onRegister, history, onResetHistory, cloudEnabled, onExam, onStudy, onSection, onLeaderboard }) {
+function HomeScreen({ player, setPlayer, onRegister, history, onResetHistory, cloudEnabled, onExam, onStudy, onSection, onLeaderboard, onFauna }) {
   const [open, setOpen] = useState(false);
   const [nameError, setNameError] = useState(false);
   const n = history.length;
@@ -163,6 +164,12 @@ function HomeScreen({ player, setPlayer, onRegister, history, onResetHistory, cl
           className="bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-green-950 font-black text-xl rounded-2xl py-5 px-6 shadow-xl transition-all duration-150 flex items-center gap-4 text-left">
           <span className="text-3xl">📖</span>
           <div><div>Modalità Studio</div><div className="text-sm font-normal text-green-950">Tutte le domande con feedback immediato</div></div>
+        </button>
+
+        <button onClick={onFauna}
+          className="bg-lime-700 hover:bg-lime-600 active:bg-lime-800 text-white font-black text-xl rounded-2xl py-5 px-6 shadow-xl transition-all duration-150 flex items-center gap-4 text-left">
+          <span className="text-3xl">🦌</span>
+          <div><div>Indovina l'Animale</div><div className="text-sm font-normal text-lime-100">Foto → nome → specie → famiglia</div></div>
         </button>
 
         {cloudEnabled && (
@@ -665,11 +672,12 @@ export default function App() {
   if (view === "study") return <PracticeMode title="Studio" emoji="📖" pool={QUESTIONS} onFinish={() => setView("home")} />;
   if (view === "section" && section) return <PracticeMode title={section.label} emoji={section.emoji} pool={POOLS[section.key] || []} onFinish={() => setView("home")} />;
   if (view === "leaderboard") return <LeaderboardScreen leaderboard={leaderboard} player={player} onBack={() => setView("home")} />;
+  if (view === "fauna") return <FaunaGame onExit={() => setView("home")} />;
 
   return <HomeScreen player={player} setPlayer={setPlayer} onRegister={registerName}
     history={history} onResetHistory={resetHistory}
     cloudEnabled={cloudEnabled}
     onExam={() => setView("exam")} onStudy={() => setView("study")}
     onSection={(s) => { setSection(s); setView("section"); }}
-    onLeaderboard={() => setView("leaderboard")} />;
+    onLeaderboard={() => setView("leaderboard")} onFauna={() => setView("fauna")} />;
 }

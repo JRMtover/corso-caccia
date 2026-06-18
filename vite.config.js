@@ -59,7 +59,17 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
-        runtimeCaching: []
+        // Le foto fauna (.jpg) non sono in precache: si cachano alla prima visione
+        // (CacheFirst) così il gioco "Indovina l'animale" funziona anche offline dopo.
+        runtimeCaching: [{
+          urlPattern: ({ url }) => url.pathname.includes('/fauna/'),
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'fauna-images',
+            expiration: { maxEntries: 130, maxAgeSeconds: 60 * 60 * 24 * 180 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        }]
       }
     })
   ]
