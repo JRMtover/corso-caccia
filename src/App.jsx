@@ -487,6 +487,11 @@ function ExamResults({ player, questions, answers, correct, wrong, passed, timeU
   const [openExpl, setOpenExpl] = useState({});   // {index: true} domande con spiegazione aperta
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-950 to-emerald-900 flex flex-col items-center p-4 py-8">
+      {passed && (
+        <div className="w-full max-w-lg bg-amber-400 text-green-950 rounded-2xl shadow-xl px-5 py-3 mb-3 text-center font-black tracking-wide">
+          🎉 Matteo e Stefano sono fieri di te 🎉
+        </div>
+      )}
       <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl p-7 text-center mb-4">
         <div className="text-6xl mb-2">{passed ? "🎉" : "😔"}</div>
         <h2 className={"text-3xl font-black mb-1 " + (passed ? "text-green-600" : "text-red-600")}>{passed ? "PROMOSSO!" : "NON SUPERATO"}</h2>
