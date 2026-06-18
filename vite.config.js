@@ -52,6 +52,13 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
         navigateFallback: '/corso-caccia/index.html',
         navigateFallbackDenylist: [/^\/api\//],
+        // CRUCIALE per la consegna degli aggiornamenti: il nuovo service worker deve
+        // attivarsi subito (skipWaiting) e prendere il controllo dei client già aperti
+        // (clientsClaim). Senza questi, un'app installata resterebbe per sempre sulla
+        // versione vecchia in cache (il vecchio SW non cede mai il controllo).
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         runtimeCaching: []
       }
     })
