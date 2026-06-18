@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { QUESTIONS, SECTION_COLORS, SECTION_EMOJI } from './data.js';
 import { loadHistory, saveHistory, clearHistory } from './storage.js';
 import { isConfigured as cloudEnabled, hashIp, registerPlayer, recordExamResult, subscribeLeaderboard } from './firebase.js';
+import { EXPLANATIONS } from './explanations.js';
 import './index.css';
 
 function shuffle(arr) {
@@ -475,6 +476,7 @@ function ExamMode({ player, onFinish, onExit }) {
 
 function ExamResults({ player, questions, answers, correct, wrong, passed, timeUsed, onFinish }) {
   const [showReview, setShowReview] = useState(false);
+  const [openExpl, setOpenExpl] = useState({});   // {index: true} domande con spiegazione aperta
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-950 to-emerald-900 flex flex-col items-center p-4 py-8">
       <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl p-7 text-center mb-4">
@@ -493,14 +495,26 @@ function ExamResults({ player, questions, answers, correct, wrong, passed, timeU
       </div>
       {showReview && (
         <div className="w-full max-w-lg flex flex-col gap-2">
+          <p className="text-green-300 text-xs text-center mb-1">Tocca una domanda per la spiegazione 💡</p>
           {questions.map((q, i) => {
             const a = answers[i], ok = a === q.correct;
+            const expl = EXPLANATIONS[q.id];
+            const open = !!openExpl[i];
             return (
               <div key={i} className={"bg-white rounded-2xl p-4 border-l-4 " + (ok ? "border-green-500" : "border-red-500")}>
-                <div className="flex items-start gap-2 mb-1"><span className="text-lg">{ok ? "✅" : "❌"}</span>
-                  <p className="text-gray-900 text-sm font-semibold flex-1">{i + 1}. {q.question}</p></div>
+                <button onClick={() => setOpenExpl(o => ({ ...o, [i]: !o[i] }))}
+                  className="w-full text-left flex items-start gap-2 mb-1" aria-expanded={open}>
+                  <span className="text-lg">{ok ? "✅" : "❌"}</span>
+                  <p className="text-gray-900 text-sm font-semibold flex-1">{i + 1}. {q.question}</p>
+                  <span className={"text-gray-400 text-sm transition-transform " + (open ? "rotate-180" : "")}>▾</span>
+                </button>
                 <p className="text-xs text-green-700 ml-7"><b>Corretta:</b> {q.correct.toUpperCase()}. {q.options[q.correct]}</p>
                 {!ok && <p className="text-xs text-red-600 ml-7"><b>Tua:</b> {a ? a.toUpperCase() + ". " + q.options[a] : "— nessuna risposta"}</p>}
+                {open && (
+                  <div className="ml-7 mt-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                    <p className="text-xs text-amber-900 leading-snug"><b>💡 Perché:</b> {expl || "Spiegazione non ancora disponibile per questa domanda."}</p>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -593,6 +607,11 @@ function PracticeMode({ title, emoji, pool, onFinish }) {
           <div className={"rounded-2xl px-5 py-3 mb-3 text-center font-bold " + (selected === q.correct ? "bg-green-500 text-white" : "bg-red-500 text-white")}>
             {selected === q.correct ? "✓ Corretta!" : "✗ Errata — risposta giusta: " + q.correct.toUpperCase()}
           </div>
+          {EXPLANATIONS[q.id] && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-3">
+              <p className="text-sm text-amber-900 leading-snug"><b>💡 Perché:</b> {EXPLANATIONS[q.id]}</p>
+            </div>
+          )}
           <button onClick={next} className="w-full bg-amber-500 hover:bg-amber-400 text-green-950 font-black text-lg rounded-2xl py-4 transition-all shadow-lg">
             {idx + 1 < questions.length ? "Prossima →" : "Termina"}
           </button>
