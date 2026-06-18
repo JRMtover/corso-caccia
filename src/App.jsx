@@ -116,6 +116,7 @@ function HomeScreen({ player, setPlayer, onRegister, history, onResetHistory, cl
         <h1 className="text-4xl font-black text-white tracking-tight">Corso Caccia</h1>
         <p className="text-green-300 text-base mt-1">Simulatore Esame Venatorio · Lombardia</p>
         <p className="text-green-500 text-xs mt-1">{QUESTIONS.length} domande ufficiali · Allegato B1 L.R. 26/93</p>
+        <p className="text-amber-400 text-xs font-black tracking-wider mt-2">MADE BY THE ONE AND ONLY JORDI</p>
       </div>
 
       <div className="w-full max-w-lg mb-5">
