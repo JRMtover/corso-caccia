@@ -27,11 +27,14 @@ function uniqueByStem(arr) {
 const POOLS = {};
 QUESTIONS.forEach(q => { (POOLS[q.section] = POOLS[q.section] || []).push(q); });
 
+// Struttura ufficiale della prova scritta (30 quiz): 14 legislazione, 5 zoologia
+// applicata + cinofilia, 5 armi e munizioni, 5 tutela natura + colture, 1 pronto soccorso.
 const EXAM_BLUEPRINT = [
-  { section: "Legislazione", n: 10 },
-  { section: "Zoologia",     n: 7 },
-  { section: "Armi",         n: 7 },
-  { section: "Tutela Natura",n: 6 },
+  { section: "Legislazione",    n: 14 },
+  { section: "Zoologia",        n: 5 },
+  { section: "Armi",            n: 5 },
+  { section: "Tutela Natura",   n: 5 },
+  { section: "Pronto Soccorso", n: 1 },
 ];
 const EXAM_TIME = 30 * 60;
 const MAX_ERRORS = 4;
